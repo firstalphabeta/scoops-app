@@ -63,6 +63,9 @@ main{padding:14px 12px 72px}
 .owner-photo img{width:100%;height:100%;object-fit:cover}
 .owner-photo-actions{flex:1;min-width:190px}
 .owner-photo-actions input[type=file]{padding:8px}
+.cost-item{display:grid;grid-template-columns:1.2fr repeat(3,minmax(100px,1fr)) auto;gap:8px;align-items:end;padding:10px 0;border-bottom:1px solid var(--line)}
+.cost-item label{margin-top:0}
+@media(max-width:760px){.cost-item{grid-template-columns:repeat(2,minmax(0,1fr))}.cost-item .cost-name{grid-column:1/-1}.cost-item button{grid-column:2;justify-self:end}}
 </style>
 </head>
 <body>
@@ -118,10 +121,15 @@ main{padding:14px 12px 72px}
 <div class="card"><h2>Owner picture</h2><div class="owner-photo-row"><div class="owner-photo" id="ownerPhoto" aria-label="Owner picture preview">KN</div><div class="owner-photo-actions"><label for="ownerPhotoFile">Choose a picture</label><input type="file" id="ownerPhotoFile" accept="image/*"><button class="alt" id="removeOwnerPhoto" type="button">Remove picture</button><p class="sub" style="margin:8px 0 0">Saved in this browser only. It is not uploaded to your sheet.</p></div></div></div>
 <div class="card"><h2>Prices</h2>
 <label>Currency symbol</label><input id="s_cur">
-<label>Cost of one tub</label><input type="number" id="s_cost" inputmode="decimal">
-<label>Cups one tub makes</label><input type="number" id="s_cups" inputmode="numeric">
+<label>Cost of ice cream in one tub</label><input type="number" id="s_cost" min="0" step="0.01" inputmode="decimal">
+<label>Cups one tub makes</label><input type="number" id="s_cups" min="1" step="1" inputmode="numeric">
 <label>Selling price per cup</label><input type="number" id="s_price" inputmode="decimal">
 <label>Cups a customer buys to earn a free cup</label><input type="number" id="s_loy" inputmode="numeric">
+<h2 style="margin-top:18px">Other costs per cup</h2>
+<p class="sub">Add supplies you use for each cup. Example: a pack costs GH₵10, has 100 spoons, and you use 1 spoon per cup.</p>
+<div id="costItems"></div>
+<button class="alt" type="button" id="addCostItem">+ Add a cost item</button>
+<p class="tip" id="unitCostSummary" aria-live="polite"></p>
 <label>Change PIN (leave empty to keep it)</label><input type="password" id="s_pin" inputmode="numeric">
 <p style="margin:12px 0 0"><button id="saveS">Save prices</button></p></div>
 </section>
@@ -130,9 +138,10 @@ main{padding:14px 12px 72px}
 <div id="toast"></div>
 
 <script>
-var S={set:{cur:'',cost:0,cups:1,price:0},sales:[],orders:[]},cnt=0,dashMode='month',dashPeriod='';
+var S={set:{cur:'',cost:0,cups:1,price:0,loy:10,costItems:[]},sales:[],orders:[]},cnt=0,dashMode='month',dashPeriod='';
 var $=function(i){return document.getElementById(i)};
 function m(n){return S.set.cur+(Math.round(n*100)/100).toLocaleString()}
+function cupCost(){var s=S.set||{},base=(+s.cost||0)/(+s.cups||1),items=s.costItems||[];return base+items.reduce(function(total,item){return total+(+item.packCost||0)/(+item.packQty||1)*(+item.usedPerCup||0)},0)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},1800)}
 var API='https://script.google.com/macros/s/AKfycbzJ5np_X2qOl8pUrFA-6y_XLMtMWiWNXdDsWkkFwy2g15YAdF9OpSmZMqbxzqOBd1yL/exec',PIN='';try{PIN=localStorage.getItem('scoops-pin')||''}catch(e){}
@@ -189,7 +198,7 @@ function bindPeriodControls(keys){document.querySelectorAll('[data-period-mode]'
 
 function grow(){var a=S.sales.slice().sort(function(x,y){return x.Date<y.Date?-1:1}),el=$('grow');
 if(a.length<3){el.innerHTML='<div class="card"><h2>Trends unlock soon</h2><p class="sub">Save at least 3 sales days and this tab shows trends and safe promo advice.</p></div>';return}
-var cpc=S.set.cost/S.set.cups,mg=S.set.price-cpc,mons={},h='';
+var cpc=cupCost(),mg=S.set.price-cpc,mons={},h='';
 a.forEach(function(r){(mons[r.Month]=mons[r.Month]||[]).push(r)});
 var ks=Object.keys(mons).sort(),cm=mons[ks[ks.length-1]],pm=ks.length>1?mons[ks[ks.length-2]]:null;
 var half=Math.floor(a.length/2),c1=sum(a.slice(0,half),'Sold')/half,c2=sum(a.slice(half),'Sold')/(a.length-half),gr=Math.round((c2/c1-1)*100);
@@ -222,7 +231,7 @@ function u(){var d=+$('g1').value/100,nm=mg-S.set.price*d;$('gd').textContent=Ma
 $('gr1').innerHTML=nm<=0?'<div class="tip warn">You lose money on every cup at this level.</div>':'<div class="tip'+(d*100>safeD?' warn':'')+'">You keep '+m(nm)+' per cup. To earn the same total profit you need <b>'+Math.ceil((mg/nm-1)*100)+'% more cups</b>, about '+Math.ceil(avS*mg/nm)+' a day instead of '+Math.round(avS)+'.</div>'}
 function u2(){var q=+$('g2').value,b=Math.max(0,sum(cm,'Profit'))*q/100;$('gb').textContent=q;$('gr2').innerHTML='<div class="tip">Promo budget: <b>'+m(b)+'</b>. That covers about <b>'+Math.floor(b/cpc)+' free cups</b>, since a free cup only costs you the ice cream ('+m(cpc)+').</div>'}
 $('g1').oninput=u;$('g2').oninput=u2;u();u2()}
-function cust(){var C=S.customers||[],T=S.set.loy||10,cpc=S.set.cost/S.set.cups,earned=0,used=0;
+function cust(){var C=S.customers||[],T=S.set.loy||10,cpc=cupCost(),earned=0,used=0;
 C.forEach(function(c){earned+=Math.floor(c.Stamps/T);used+=+c.Redeemed||0});
 $('cinfo').innerHTML='<div class="card"><h2>Loyalty club</h2><div class="grid"><div class="stat"><span>Members</span><b>'+C.length+'</b></div><div class="stat"><span>Free cups waiting</span><b>'+Math.max(0,earned-used)+'</b></div></div><p class="sub" style="margin:10px 0 0">Every '+T+' cups earns a free cup. It costs you about '+m(cpc)+' in ice cream, only '+(cpc/(T*S.set.price)*100).toFixed(1)+'% of what the customer spends.</p></div>';
 var o=C.slice().sort(function(a,b){return b.Stamps-a.Stamps});
@@ -241,7 +250,13 @@ $('olist').innerHTML=h;
 document.querySelectorAll('[data-ok]').forEach(function(b){b.onclick=function(){run('deliverOrder',b.dataset.ok)}});
 document.querySelectorAll('[data-no]').forEach(function(b){b.onclick=function(){run('deleteById',{sheet:'Orders',id:b.dataset.no})}})}
 
-function sets(){$('s_cur').value=S.set.cur;$('s_cost').value=S.set.cost;$('s_cups').value=S.set.cups;$('s_price').value=S.set.price;$('s_loy').value=S.set.loy;rev()}
+function renderCostItems(){var items=S.set.costItems||[];$('costItems').innerHTML=items.map(function(item,i){return'<div class="cost-item" data-cost-row="'+i+'"><div class="cost-name"><label>Item name</label><input data-cost-field="name" value="'+esc(item.name||'')+'" placeholder="Spoon"></div><div><label>Pack price</label><input type="number" min="0" step="0.01" data-cost-field="packCost" value="'+(+item.packCost||0)+'"></div><div><label>Items in pack</label><input type="number" min="1" step="any" data-cost-field="packQty" value="'+(+item.packQty||1)+'"></div><div><label>Used per cup</label><input type="number" min="0" step="any" data-cost-field="usedPerCup" value="'+(+item.usedPerCup||0)+'"></div><button class="alt" type="button" data-cost-remove="'+i+'" aria-label="Remove cost item">Remove</button></div>'}).join('');updateCostSummary()}
+function updateCostSummary(){var base=(+$('s_cost').value||0)/(+$('s_cups').value||1),extra=0;document.querySelectorAll('.cost-item').forEach(function(row){var cost=+(row.querySelector('[data-cost-field="packCost"]').value)||0,qty=+(row.querySelector('[data-cost-field="packQty"]').value)||1,used=+(row.querySelector('[data-cost-field="usedPerCup"]').value)||0;extra+=cost/qty*used});$('unitCostSummary').textContent='Estimated cost per cup: '+m(base+extra)+' (ice cream '+m(base)+' + supplies '+m(extra)+')'}
+function sets(){$('s_cur').value=S.set.cur;$('s_cost').value=S.set.cost;$('s_cups').value=S.set.cups;$('s_price').value=S.set.price;$('s_loy').value=S.set.loy;S.set.costItems=S.set.costItems||[];renderCostItems();rev()}
+['s_cost','s_cups'].forEach(function(id){$(id).addEventListener('input',updateCostSummary)});
+$('addCostItem').onclick=function(){S.set.costItems=S.set.costItems||[];S.set.costItems.push({name:'',packCost:0,packQty:1,usedPerCup:1});renderCostItems()};
+$('costItems').oninput=updateCostSummary;
+$('costItems').onclick=function(e){var b=e.target.closest('[data-cost-remove]');if(!b)return;S.set.costItems.splice(+b.dataset.costRemove,1);renderCostItems()};
 function rev(){$('cnt').textContent=cnt;$('todayRev').textContent=cnt+' cups = '+m(cnt*S.set.price)}
 function render(){dash();grow();cust();orders();sets()}
 
@@ -252,7 +267,7 @@ $('save').onclick=function(){var v=function(i){return+$(i).value||0};if(!$('f_da
 run('addSale',{date:$('f_date').value,event:$('f_event').value,tubs:v('f_tubs'),sold:cnt,free:v('f_free'),left:v('f_left'),other:v('f_other'),note:$('f_note').value},function(){cnt=0;rev();$('f_event').value='';$('f_note').value='';tab('dash')})};
 $('addO').onclick=function(){var q=+$('o_qty').value;if(!$('o_name').value||!q||!$('o_date').value){toast('Fill name, cups and date');return}
 run('addOrder',{name:$('o_name').value,qty:q,date:$('o_date').value,dep:+$('o_dep').value||0},function(){$('o_name').value='';$('o_qty').value='';$('o_dep').value=0})};
-$('saveS').onclick=function(){var np=$('s_pin').value;run('saveSettings',{cur:$('s_cur').value||'GH₵',cost:+$('s_cost').value,cups:+$('s_cups').value||1,price:+$('s_price').value,loy:+$('s_loy').value||10,pin:np},function(){if(np){PIN=np;try{localStorage.setItem('scoops-pin',PIN)}catch(e){}}$('s_pin').value=''})};
+$('saveS').onclick=function(){var np=$('s_pin').value,costItems=[],invalid=false;document.querySelectorAll('.cost-item').forEach(function(row){var item={name:row.querySelector('[data-cost-field="name"]').value.trim(),packCost:+row.querySelector('[data-cost-field="packCost"]').value,packQty:+row.querySelector('[data-cost-field="packQty"]').value,usedPerCup:+row.querySelector('[data-cost-field="usedPerCup"]').value};if(!item.name||!Number.isFinite(item.packCost)||item.packCost<0||!Number.isFinite(item.packQty)||item.packQty<=0||!Number.isFinite(item.usedPerCup)||item.usedPerCup<0)invalid=true;costItems.push(item)});if(invalid){toast('Check each item name and cost amount');return}run('saveSettings',{cur:$('s_cur').value||'GH₵',cost:+$('s_cost').value,cups:+$('s_cups').value||1,price:+$('s_price').value,loy:+$('s_loy').value||10,costItems:costItems,pin:np},function(){if(np){PIN=np;try{localStorage.setItem('scoops-pin',PIN)}catch(e){}}$('s_pin').value=''})};
 
 var today=new Date().toLocaleDateString('en-CA');$('f_date').value=today;$('o_date').value=today;
 function load(){$('loading').textContent='Loading from your Google Sheet…';call('getData',null).then(function(d){S=d;$('lock').classList.add('hide');$('app').classList.remove('hide');$('loading').textContent='';render()}).catch(function(e){$('app').classList.add('hide');$('lock').classList.remove('hide');$('loading').textContent='';$('lerr').textContent=PIN?e.message:'Enter your PIN to open the app.'})}
