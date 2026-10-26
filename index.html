@@ -110,7 +110,7 @@ var $=function(i){return document.getElementById(i)};
 function m(n){return S.set.cur+(Math.round(n*100)/100).toLocaleString()}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},1800)}
-var API='https://script.google.com/macros/s/AKfycby1jIyc9NcSIi5L_oivmIKqK_1nYyL0vkkI66i93huzEg95a6l8SEkNlJt2dOISDU7AEw/exec',PIN='';try{PIN=localStorage.getItem('scoops-pin')||''}catch(e){}
+var API='https://script.google.com/macros/s/AKfycbzJ5np_X2qOl8pUrFA-6y_XLMtMWiWNXdDsWkkFwy2g15YAdF9OpSmZMqbxzqOBd1yL/exec',PIN='';try{PIN=localStorage.getItem('scoops-pin')||''}catch(e){}
 function call(fn,arg){return fetch(API,{method:'POST',body:JSON.stringify({fn:fn,arg:arg,pin:PIN})}).then(function(r){return r.json()}).then(function(j){if(j.error)throw new Error(j.error);return j})}
 function run(fn,arg,after){toast('Saving…');call(fn,arg).then(function(d){S=d;toast('Saved to sheet ✓');render();if(after)after()}).catch(function(e){toast('Error: '+e.message)})}
 function tab(t){['today','dash','grow','cust','orders','set'].forEach(function(x){$(x).classList.toggle('hide',x!==t)});
