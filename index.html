@@ -10,7 +10,7 @@
 @media (prefers-color-scheme:dark){:root{--bg:#17121f;--card:#221a30;--ink:#f1ecfa;--mute:#a79dbd;--berry:#ff6b9a;--mint:#3ddba5;--blue:#8f83ff;--line:#33294a;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.45}
-main{max-width:720px;margin:0 auto;padding:18px 16px 80px}
+main{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
 h1{font-size:30px;font-weight:800;margin:6px 0 2px;letter-spacing:-.5px}
 h2{font-size:18px;margin:0 0 10px}
 .sub{color:var(--mute);margin:0 0 14px}
@@ -27,9 +27,12 @@ button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:12px 16p
 button.alt{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
 button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .row{display:flex;gap:10px}.row>*{flex:1}
-.tabs{display:flex;gap:6px;margin:10px 0 14px;overflow-x:auto}
-.tabs button{flex:1 0 auto;background:var(--card);color:var(--mute);border:1px solid var(--line);padding:10px 14px;font-size:14px}
+.tabs{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:6px;margin:10px 0 14px;position:sticky;top:16px}
+.tabs button{width:100%;text-align:left;flex:none;background:var(--card);color:var(--mute);border:1px solid var(--line);padding:10px 14px;font-size:14px}
 .tabs button.on{background:var(--ink);color:var(--bg)}
+#app:not(.hide){display:grid;grid-template-columns:170px minmax(0,1fr);gap:16px;align-items:start}
+#app>section{grid-column:2;grid-row:1;min-width:0}
+.mobile-nav{display:none}
 .tip{border-left:4px solid var(--mint);padding:8px 12px;margin:8px 0;background:var(--bg);border-radius:0 10px 10px 0;font-size:14.5px}
 .tip.warn{border-color:var(--berry)}
 .counter{display:flex;align-items:center;justify-content:center;gap:18px;margin:6px 0 12px}
@@ -41,6 +44,13 @@ td,th{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right}td:fi
 .hide{display:none}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}
+@media(max-width:680px){
+main{padding:14px 12px 72px}
+#app:not(.hide){grid-template-columns:minmax(0,1fr);gap:8px}
+.tabs{display:none}
+.mobile-nav{display:block;grid-column:1;grid-row:1;width:100%;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+#app>section{grid-column:1;grid-row:2}
+}
 </style>
 </head>
 <body>
@@ -50,10 +60,11 @@ td,th{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right}td:fi
 <p class="sub" id="loading">Loading from your Google Sheet…</p>
 <div id="lock" class="card hide"><h2>Enter your PIN</h2><input type="password" id="pin" inputmode="numeric" placeholder="PIN"><p style="margin:12px 0 0"><button id="go">Open</button></p><p class="sub" id="lerr" style="margin:8px 0 0"></p></div>
 <div id="app" class="hide">
-<div class="tabs">
+<nav class="tabs" aria-label="Main sections">
 <button class="on" data-t="today">Today</button><button data-t="dash">Dashboard</button>
 <button data-t="orders">Orders</button><button data-t="grow">Grow</button><button data-t="cust">Loyalty</button><button data-t="set">Prices</button>
-</div>
+</nav>
+<select class="mobile-nav" id="mobileTab" aria-label="Choose section"><option value="today">Today</option><option value="dash">Dashboard</option><option value="orders">Orders</option><option value="grow">Grow</option><option value="cust">Loyalty</option><option value="set">Prices</option></select>
 
 <section id="today">
 <div class="card">
@@ -114,16 +125,17 @@ var API='https://script.google.com/macros/s/AKfycbzJ5np_X2qOl8pUrFA-6y_XLMtMWiWN
 function call(fn,arg){return fetch(API,{method:'POST',body:JSON.stringify({fn:fn,arg:arg,pin:PIN})}).then(function(r){return r.json()}).then(function(j){if(j.error)throw new Error(j.error);return j})}
 function run(fn,arg,after){toast('Saving…');call(fn,arg).then(function(d){S=d;toast('Saved to sheet ✓');render();if(after)after()}).catch(function(e){toast('Error: '+e.message)})}
 function tab(t){['today','dash','grow','cust','orders','set'].forEach(function(x){$(x).classList.toggle('hide',x!==t)});
-document.querySelectorAll('.tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)})}
+document.querySelectorAll('.tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});$('mobileTab').value=t}
 document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){tab(b.dataset.t)}});
+$('mobileTab').onchange=function(){tab(this.value)};
 
 function sum(l,k){return l.reduce(function(t,r){return t+(+r[k]||0)},0)}
 function chart(a){var W=640,H=200,p=28,n=a.length,v=a.map(function(r){return+r.Profit});
 var mx=Math.max.apply(null,v.concat([1])),mn=Math.min.apply(null,v.concat([0])),bw=Math.min(46,(W-p*2)/n-8);
 var y=function(x){return 10+(H-40)*(1-(x-mn)/(mx-mn||1))};
 var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Profit per day"><line x1="'+p+'" x2="'+(W-p)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="var(--line)"/>',pts=[];
-a.forEach(function(r,i){var x=p+(i+.5)*((W-p*2)/n),yy=y(v[i]),y0=y(0);
-s+='<rect x="'+(x-bw/2)+'" y="'+Math.min(yy,y0)+'" width="'+bw+'" height="'+Math.max(2,Math.abs(y0-yy))+'" rx="5" fill="'+(v[i]>=0?'var(--mint)':'var(--berry)')+'"/><text x="'+x+'" y="'+(H-8)+'" font-size="11" text-anchor="middle" fill="var(--mute)">'+esc(String(r.Date).slice(5))+'</text>';pts.push(x+','+yy)});
+a.forEach(function(r,i){var x=p+(i+.5)*((W-p*2)/n),yy=y(v[i]),y0=y(0),detail=String(r.Date)+' | Cups sold: '+r.Sold+' | Revenue: '+m(r.Revenue)+' | Cost: '+m(r.Cost)+' | Profit: '+m(r.Profit);
+s+='<rect tabindex="0" role="img" aria-label="'+esc(detail)+'" x="'+(x-bw/2)+'" y="'+Math.min(yy,y0)+'" width="'+bw+'" height="'+Math.max(2,Math.abs(y0-yy))+'" rx="5" fill="'+(v[i]>=0?'var(--mint)':'var(--berry)')+'"><title>'+esc(detail)+'</title></rect><text x="'+x+'" y="'+(H-8)+'" font-size="11" text-anchor="middle" fill="var(--mute)">'+esc(String(r.Date).slice(5))+'</text>';pts.push(x+','+yy)});
 if(n>1)s+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="4 4"/>';
 return s+'</svg>'}
 
@@ -155,7 +167,7 @@ var half=Math.floor(a.length/2),c1=sum(a.slice(0,half),'Sold')/half,c2=sum(a.sli
 h+='<div class="card"><h2>Trends</h2><div class="tip'+(gr<0?' warn':'')+'">Cups per day: '+Math.round(c1)+' earlier, '+Math.round(c2)+' recently ('+(gr>=0?'+':'')+gr+'%). '+(gr>=0?'Demand is growing.':'Demand is slipping, so a promo may help.')+'</div>';
 if(pm){var pp=sum(pm,'Profit')/pm.length,cp=sum(cm,'Profit')/cm.length;h+='<div class="tip'+(cp<pp?' warn':'')+'">Average profit per day: '+m(cp)+' in '+ks[ks.length-1]+' versus '+m(pp)+' in '+ks[ks.length-2]+'.</div>'}
 var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],wd=dn.map(function(){return[]});
-a.forEach(function(r){wd[new Date(r.Date+'T12:00:00').getDay()].push(+r.Sold)});
+a.forEach(function(r){var d=new Date(String(r.Date||'')+'T12:00:00'),day=d.getDay();if(!isNaN(d.getTime()))wd[day].push(+r.Sold)});
 var av=wd.map(function(l){return l.length?l.reduce(function(t,x){return t+x},0)/l.length:-1}),mx=Math.max.apply(null,av),bi=av.indexOf(mx),wi=bi,lo=1e9;
 av.forEach(function(v,i){if(v>=0&&v<lo){lo=v;wi=i}});
 h+='<h2 style="margin:14px 0 4px;font-size:15px">Average cups by weekday</h2>';
