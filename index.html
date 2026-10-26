@@ -27,6 +27,10 @@ button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:12px 16p
 button.alt{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
 button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .row{display:flex;gap:10px}.row>*{flex:1}
+.period-controls{align-items:end;flex-wrap:wrap}
+.period-mode{display:flex;gap:6px;flex:0 0 auto}
+.period-mode button.on{background:var(--ink);color:var(--bg)}
+.period-controls>div:last-child{min-width:180px}
 .tabs{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:6px;margin:10px 0 14px;position:sticky;top:16px}
 .tabs button{width:100%;text-align:left;flex:none;background:var(--card);color:var(--mute);border:1px solid var(--line);padding:10px 14px;font-size:14px}
 .tabs button.on{background:var(--ink);color:var(--bg)}
@@ -116,7 +120,7 @@ main{padding:14px 12px 72px}
 <div id="toast"></div>
 
 <script>
-var S={set:{cur:'',cost:0,cups:1,price:0},sales:[],orders:[]},cnt=0;
+var S={set:{cur:'',cost:0,cups:1,price:0},sales:[],orders:[]},cnt=0,dashMode='month',dashPeriod='';
 var $=function(i){return document.getElementById(i)};
 function m(n){return S.set.cur+(Math.round(n*100)/100).toLocaleString()}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
@@ -130,6 +134,10 @@ document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function
 $('mobileTab').onchange=function(){tab(this.value)};
 
 function sum(l,k){return l.reduce(function(t,r){return t+(+r[k]||0)},0)}
+function saleDate(r){var d=String(r.Date||'');return /^\d{4}-\d{2}-\d{2}$/.test(d)?d:''}
+function saleWeek(d){var x=new Date(d+'T12:00:00Z');if(isNaN(x.getTime()))return'';x.setUTCDate(x.getUTCDate()+4-(x.getUTCDay()||7));var y=x.getUTCFullYear(),start=new Date(Date.UTC(y,0,1)),w=Math.ceil((((x-start)/86400000)+1)/7);return y+'-W'+String(w).padStart(2,'0')}
+function salePeriod(r,mode){if(mode==='month'){var month=String(r.Month||'');if(/^\d{4}-\d{2}$/.test(month))return month;var d=saleDate(r);return d?d.slice(0,7):''}var date=saleDate(r);return date?saleWeek(date):''}
+function periodLabel(key,mode){if(!key)return'All records';if(mode==='month')return new Date(key+'-01T12:00:00Z').toLocaleDateString('en',{month:'long',year:'numeric',timeZone:'UTC'});var p=key.split('-W'),start=new Date(Date.UTC(+p[0],0,4));start.setUTCDate(start.getUTCDate()-(start.getUTCDay()||7)+1+(+p[1]-1)*7);var end=new Date(start);end.setUTCDate(end.getUTCDate()+6);function f(d){return d.toLocaleDateString('en',{month:'short',day:'numeric',timeZone:'UTC'})}return'Week of '+f(start)+' – '+f(end)}
 function chart(a){var W=640,H=200,p=28,n=a.length,v=a.map(function(r){return+r.Profit});
 var mx=Math.max.apply(null,v.concat([1])),mn=Math.min.apply(null,v.concat([0])),bw=Math.min(46,(W-p*2)/n-8);
 var y=function(x){return 10+(H-40)*(1-(x-mn)/(mx-mn||1))};
@@ -139,24 +147,29 @@ s+='<rect tabindex="0" role="img" aria-label="'+esc(detail)+'" x="'+(x-bw/2)+'" 
 if(n>1)s+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="4 4"/>';
 return s+'</svg>'}
 
-function dash(){var a=S.sales.slice().sort(function(x,y){return x.Date<y.Date?-1:1});
-if(!a.length){$('dash').innerHTML='<div class="card"><h2>No sales yet</h2><p class="sub">Record the first sale day on the Today tab.</p></div>';return}
-var cur=a[a.length-1].Month,mo=a.filter(function(r){return r.Month===cur}),P=sum(mo,'Profit'),R=sum(mo,'Revenue'),C=sum(mo,'Cost'),Q=sum(mo,'Sold');
-var h='<div class="card hero"><span>Profit in '+cur+'</span><div class="big">'+m(P)+'</div><span>'+mo.length+' day'+(mo.length>1?'s':'')+' · margin '+(R?Math.round(P/R*100):0)+'%</span></div>';
-h+='<div class="grid" style="margin-bottom:14px"><div class="card stat"><span>Money in</span><b>'+m(R)+'</b></div><div class="card stat"><span>Money spent</span><b>'+m(C)+'</b></div><div class="card stat"><span>Cups sold</span><b>'+Q+'</b></div><div class="card stat"><span>Avg per day</span><b>'+m(P/mo.length)+'</b></div></div>';
-h+='<div class="card"><h2>Profit per day</h2>'+chart(a.slice(-12))+'</div><div class="card"><h2>What the numbers say</h2>';
-var best=a.slice().sort(function(x,y){return y.Profit-x.Profit})[0],made=sum(mo,'Tubs')*S.set.cups,st=made?Math.round((Q+sum(mo,'Free'))/made*100):0;
+function dash(){var all=S.sales.slice().sort(function(x,y){return String(x.Date)<String(y.Date)?-1:1}),keys=[];all.forEach(function(r){var k=salePeriod(r,dashMode);if(k&&keys.indexOf(k)<0)keys.push(k)});keys.sort();if(dashPeriod&&keys.indexOf(dashPeriod)<0)dashPeriod='';if(!dashPeriod&&keys.length)dashPeriod=keys[keys.length-1];
+if(dashMode==='week'&&all.length&&!keys.length){var empty='<div class="card"><h2>Weekly view unavailable</h2><p class="sub">The sheet is returning blank dates. Fix the date values in the connected Apps Script, then weekly filtering will work.</p><div class="period-mode"><button class="alt" data-period-mode="month">Month</button><button class="alt on" data-period-mode="week">Week</button></div></div>';$('dash').innerHTML=empty;bindPeriodControls(keys);return}
+var label=periodLabel(dashPeriod,dashMode),a=all.filter(function(r){return !dashPeriod||salePeriod(r,dashMode)===dashPeriod});
+if(!all.length){$('dash').innerHTML='<div class="card"><h2>No sales yet</h2><p class="sub">Record the first sale day on the Today tab.</p></div>';return}
+var P=sum(a,'Profit'),R=sum(a,'Revenue'),C=sum(a,'Cost'),Q=sum(a,'Sold');
+var h='<div class="card"><h2>Dashboard period</h2><div class="row period-controls"><div class="period-mode"><button class="alt'+(dashMode==='month'?' on':'')+'" data-period-mode="month">Month</button><button class="alt'+(dashMode==='week'?' on':'')+'" data-period-mode="week">Week</button></div><div><label for="dashPeriod">Showing</label><select id="dashPeriod" style="width:100%;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></select></div></div></div>';
+h+='<div class="card hero"><span>'+esc(dashMode==='week'?'Profit for '+label:'Profit in '+label)+'</span><div class="big">'+m(P)+'</div><span>'+a.length+' day'+(a.length!==1?'s':'')+' · margin '+(R?Math.round(P/R*100):0)+'%</span></div>';
+h+='<div class="grid" style="margin-bottom:14px"><div class="card stat"><span>Money in</span><b>'+m(R)+'</b></div><div class="card stat"><span>Money spent</span><b>'+m(C)+'</b></div><div class="card stat"><span>Cups sold</span><b>'+Q+'</b></div><div class="card stat"><span>Avg profit per day</span><b>'+m(a.length?P/a.length:0)+'</b></div></div>';
+if(!a.length){$('dash').innerHTML=h+'<div class="card"><h2>No records for this period</h2><p class="sub">Choose another month or week.</p></div>';bindPeriodControls(keys);return}
+h+='<div class="card"><h2>Profit per day · '+esc(label)+'</h2>'+chart(a.slice(-12))+'</div><div class="card"><h2>What the numbers say</h2>';
+var best=a.slice().sort(function(x,y){return y.Profit-x.Profit})[0],made=sum(a,'Tubs')*S.set.cups,st=made?Math.round((Q+sum(a,'Free'))/made*100):0;
 h+='<div class="tip">Best day so far: <b>'+esc(best.Date)+(best.Event?' ('+esc(best.Event)+')':'')+'</b> with '+m(best.Profit)+' profit.</div>';
 if(made)h+='<div class="tip'+(st<85?' warn':'')+'">You sold or gave out '+st+'% of the cups you bought this month. '+(st<85?'Buy a bit less, or run a promo to clear stock.':'Stock matches demand well.')+'</div>';
 var ev=a.filter(function(r){return r.Event}),no=a.filter(function(r){return !r.Event});
 if(ev.length&&no.length){var A=sum(ev,'Profit')/ev.length,B=sum(no,'Profit')/no.length;h+='<div class="tip">Event days average '+m(A)+' versus '+m(B)+' on normal days. '+(A>B?'Events are worth chasing.':'Normal days are doing better for now.')+'</div>'}
 h+='<div class="tip">Each tub pays for itself after '+Math.ceil(S.set.cost/S.set.price)+' cups.</div></div>';
-var rc=S.sales.slice(-6).reverse();h+='<div class="card"><h2>Recent entries</h2><table><tr><th>Date</th><th>Cups</th><th>Profit</th><th></th></tr>'+rc.map(function(r){return'<tr><td>'+esc(r.Date)+(r.Event?'<br><small>'+esc(r.Event)+'</small>':'')+'</td><td>'+r.Sold+'</td><td>'+m(r.Profit)+'</td><td><button class="alt" style="padding:4px 10px" data-edit="'+esc(r.ID)+'" aria-label="Edit entry">Edit</button> <button class="alt" style="padding:4px 10px" data-ds="'+esc(r.ID)+'" aria-label="Delete">✕</button></td></tr>'}).join('')+'</table></div>';
+var rc=a.slice(-6).reverse();h+='<div class="card"><h2>Recent entries · '+esc(label)+'</h2><table><tr><th>Date</th><th>Cups</th><th>Profit</th><th></th></tr>'+rc.map(function(r){return'<tr><td>'+esc(r.Date)+(r.Event?'<br><small>'+esc(r.Event)+'</small>':'')+'</td><td>'+r.Sold+'</td><td>'+m(r.Profit)+'</td><td><button class="alt" style="padding:4px 10px" data-edit="'+esc(r.ID)+'" aria-label="Edit entry">Edit</button> <button class="alt" style="padding:4px 10px" data-ds="'+esc(r.ID)+'" aria-label="Delete">✕</button></td></tr>'}).join('')+'</table></div>';
 h+='<div class="card hide" id="saleEditor"><h2>Edit sales entry</h2><input type="hidden" id="e_id"><label>Date</label><input type="date" id="e_date"><label>Event name</label><input id="e_event"><div class="row"><div><label>Tubs bought</label><input type="number" id="e_tubs" min="0" step="0.5"></div><div><label>Cups sold</label><input type="number" id="e_sold" min="1" step="1"></div></div><div class="row"><div><label>Free / discounted cups</label><input type="number" id="e_free" min="0" step="1"></div><div><label>Cups left over</label><input type="number" id="e_left" min="0" step="1"></div></div><label>Other costs</label><input type="number" id="e_other" min="0" step="0.01"><label>Notes</label><textarea id="e_note" rows="2"></textarea><div class="row" style="margin-top:12px"><button id="e_save">Save changes</button><button class="alt" id="e_cancel">Cancel</button></div></div>';
 $('dash').innerHTML=h;document.querySelectorAll('[data-edit]').forEach(function(b){b.onclick=function(){var r=S.sales.filter(function(x){return String(x.ID)===b.dataset.edit})[0];if(!r)return;$('e_id').value=r.ID;$('e_date').value=r.Date;$('e_event').value=r.Event||'';$('e_tubs').value=r.Tubs;$('e_sold').value=r.Sold;$('e_free').value=r.Free||0;$('e_left').value=r.Left||0;$('e_other').value=r.Other||0;$('e_note').value=r.Note||'';$('saleEditor').classList.remove('hide');$('saleEditor').scrollIntoView({behavior:'smooth',block:'center'})}});
 document.querySelectorAll('[data-ds]').forEach(function(b){b.onclick=function(){if(confirm('Delete this entry?'))run('deleteById',{sheet:'Sales',id:b.dataset.ds})}});
 if($('e_save'))$('e_save').onclick=function(){var id=$('e_id').value,date=$('e_date').value,sold=+$('e_sold').value;if(!date||sold<1||!Number.isInteger(sold)){toast('Enter a date and a whole number of cups sold');return}run('updateSale',{id:id,date:date,event:$('e_event').value,tubs:+$('e_tubs').value||0,sold:sold,free:+$('e_free').value||0,left:+$('e_left').value||0,other:+$('e_other').value||0,note:$('e_note').value})};
-if($('e_cancel'))$('e_cancel').onclick=function(){$('saleEditor').classList.add('hide')}}
+if($('e_cancel'))$('e_cancel').onclick=function(){$('saleEditor').classList.add('hide')};bindPeriodControls(keys)}
+function bindPeriodControls(keys){document.querySelectorAll('[data-period-mode]').forEach(function(b){b.onclick=function(){dashMode=b.dataset.periodMode;dashPeriod='';dash()}});var s=$('dashPeriod');if(!s)return;s.innerHTML=(keys.length?keys.slice().reverse().map(function(k){return'<option value="'+esc(k)+'">'+esc(periodLabel(k,dashMode))+'</option>'}).join(''):'<option value="">All records</option>');s.value=dashPeriod;s.onchange=function(){dashPeriod=this.value;dash()}}
 
 function grow(){var a=S.sales.slice().sort(function(x,y){return x.Date<y.Date?-1:1}),el=$('grow');
 if(a.length<3){el.innerHTML='<div class="card"><h2>Trends unlock soon</h2><p class="sub">Save at least 3 sales days and this tab shows trends and safe promo advice.</p></div>';return}
