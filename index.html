@@ -15,6 +15,8 @@
 <style>
 :root{--bg:#f5f2fb;--card:#fff;--ink:#241a36;--mute:#6f6585;--berry:#d6336c;--mint:#16a679;--blue:#5b4bdb;--line:#e4def2}
 @media (prefers-color-scheme:dark){:root{--bg:#17121f;--card:#221a30;--ink:#f1ecfa;--mute:#a79dbd;--berry:#ff6b9a;--mint:#3ddba5;--blue:#8f83ff;--line:#33294a;color-scheme:dark}}
+:root[data-theme="light"]{--bg:#f5f2fb;--card:#fff;--ink:#241a36;--mute:#6f6585;--berry:#d6336c;--mint:#16a679;--blue:#5b4bdb;--line:#e4def2;color-scheme:light}
+:root[data-theme="dark"]{--bg:#17121f;--card:#221a30;--ink:#f1ecfa;--mute:#a79dbd;--berry:#ff6b9a;--mint:#3ddba5;--blue:#8f83ff;--line:#33294a;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.45}
 main{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
@@ -22,6 +24,7 @@ h1{font-size:30px;font-weight:800;margin:6px 0 2px;letter-spacing:-.5px}
 h2{font-size:18px;margin:0 0 10px}
 .sub{color:var(--mute);margin:0 0 14px}
 .welcome{font-size:21px;font-weight:800;color:var(--ink);margin-bottom:10px}
+.today-date{font-size:14px;color:var(--mute);margin:-7px 0 12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .stat{padding:12px;border-radius:12px;background:var(--bg)}
@@ -79,8 +82,9 @@ main{padding:14px 12px 72px}
 <main>
 <h1>Scoops 🍦</h1>
 <p class="sub welcome">Welcome, Kuukua Nyarko</p>
-<p style="margin:0 0 10px"><button class="alt" id="installApp" type="button">Add to Home Screen</button></p>
-<p class="sub" id="installHelp" style="font-size:13px">Phone: open the browser menu and choose “Add to Home Screen” or “Install app.”</p>
+<p class="today-date" id="todayLabel"></p>
+<div id="installNotice"><p style="margin:0 0 10px"><button class="alt" id="installApp" type="button">Add to Home Screen</button></p>
+<p class="sub" id="installHelp" style="font-size:13px">Phone: open the browser menu and choose “Add to Home Screen” or “Install app.”</p></div>
 <p class="sub" id="loading">Loading from your Google Sheet…</p>
 <div id="lock" class="card hide"><h2>Enter your PIN</h2><input type="password" id="pin" inputmode="numeric" placeholder="PIN"><p style="margin:12px 0 0"><button id="go">Open</button></p><p class="sub" id="lerr" style="margin:8px 0 0"></p></div>
 <div id="app" class="hide">
@@ -127,6 +131,7 @@ main{padding:14px 12px 72px}
 </section>
 
 <section id="set" class="hide">
+<div class="card"><h2>Appearance</h2><p class="sub">Choose how Scoops looks on this phone.</p><div class="period-mode" id="themeChoices"><button class="alt" type="button" data-theme-choice="system">Device</button><button class="alt" type="button" data-theme-choice="light">Light</button><button class="alt" type="button" data-theme-choice="dark">Dark</button></div></div>
 <div class="card"><h2>Owner picture</h2><div class="owner-photo-row"><div class="owner-photo" id="ownerPhoto" aria-label="Owner picture preview">KN</div><div class="owner-photo-actions"><label for="ownerPhotoFile">Choose a picture</label><input type="file" id="ownerPhotoFile" accept="image/*"><button class="alt" id="removeOwnerPhoto" type="button">Remove picture</button><p class="sub" style="margin:8px 0 0">Saved in this browser only. It is not uploaded to your sheet.</p></div></div></div>
 <div class="card"><h2>Prices</h2>
 <label>Currency symbol</label><input id="s_cur">
@@ -150,6 +155,10 @@ main{padding:14px 12px 72px}
 var S={set:{cur:'',cost:0,cups:1,price:0,loy:10,costItems:[]},sales:[],orders:[]},cnt=0,dashMode='month',dashPeriod='';
 var $=function(i){return document.getElementById(i)};
 function m(n){return S.set.cur+(Math.round(n*100)/100).toLocaleString()}
+function setTheme(theme){if(['system','light','dark'].indexOf(theme)<0)theme='system';if(theme==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',theme);var dark=theme==='dark'||(theme==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches),meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=dark?'#17121f':'#241a36';document.querySelectorAll('[data-theme-choice]').forEach(function(b){b.classList.toggle('on',b.dataset.themeChoice===theme)});try{localStorage.setItem('scoops-theme',theme)}catch(e){}}
+function installedMode(){var standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;try{return standalone||navigator.standalone===true||localStorage.getItem('scoops-installed')==='true'}catch(e){return standalone||navigator.standalone===true}}
+function updateInstallNotice(){if(installedMode())$('installNotice').classList.add('hide')}
+function updateTodayLabel(){var d=new Date();$('todayLabel').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
 function cupCost(){var s=S.set||{},base=(+s.cost||0)/(+s.cups||1),items=s.costItems||[];return base+items.reduce(function(total,item){return total+(+item.packCost||0)/(+item.packQty||1)*(+item.usedPerCup||0)},0)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},1800)}
@@ -160,6 +169,9 @@ function tab(t){['today','dash','grow','cust','orders','set'].forEach(function(x
 document.querySelectorAll('.tabs button[data-t]').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});$('mobileTab').value=t;$('menuCurrent').textContent=document.querySelector('.tabs button[data-t="'+t+'"]').textContent;$('sideMenu').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false')}
 document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){tab(b.dataset.t)}});
 $('mobileTab').onchange=function(){tab(this.value)};
+$('themeChoices').onclick=function(e){var b=e.target.closest('[data-theme-choice]');if(b)setTheme(b.dataset.themeChoice)};
+var savedTheme='system';try{savedTheme=localStorage.getItem('scoops-theme')||'system'}catch(e){}setTheme(savedTheme);updateTodayLabel();updateInstallNotice();
+if(window.matchMedia)window.matchMedia('(display-mode: standalone)').addEventListener('change',updateInstallNotice);
 $('menuToggle').onclick=function(){var open=$('sideMenu').classList.toggle('open');this.setAttribute('aria-expanded',String(open))};
 
 function showOwnerPhoto(src){var box=$('ownerPhoto');box.textContent='';if(src){var img=document.createElement('img');img.src=src;img.alt='Owner picture';box.appendChild(img)}else box.textContent='KN'}
@@ -284,7 +296,7 @@ $('go').onclick=function(){PIN=$('pin').value;try{localStorage.setItem('scoops-p
 var installPrompt=null;
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();installPrompt=e});
 $('installApp').onclick=function(){if(!installPrompt){$('installHelp').textContent='Open your browser menu and choose “Add to Home Screen” or “Install app.”';return}installPrompt.prompt();installPrompt.userChoice.then(function(choice){if(choice.outcome==='accepted'){$('installHelp').textContent='Scoops was added to your home screen.'}installPrompt=null})};
-window.addEventListener('appinstalled',function(){$('installHelp').textContent='Scoops is installed on your phone.';$('installApp').classList.add('hide')});
+window.addEventListener('appinstalled',function(){try{localStorage.setItem('scoops-installed','true')}catch(e){}updateInstallNotice()});
 if('serviceWorker'in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('./sw.js').catch(function(){})}
 load();
 </script>
