@@ -4,6 +4,13 @@
 <title>Scoops</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#241a36">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scoops">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./scoops.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f5f2fb;--card:#fff;--ink:#241a36;--mute:#6f6585;--berry:#d6336c;--mint:#16a679;--blue:#5b4bdb;--line:#e4def2}
@@ -72,6 +79,8 @@ main{padding:14px 12px 72px}
 <main>
 <h1>Scoops 🍦</h1>
 <p class="sub welcome">Welcome, Kuukua Nyarko</p>
+<p style="margin:0 0 10px"><button class="alt" id="installApp" type="button">Add to Home Screen</button></p>
+<p class="sub" id="installHelp" style="font-size:13px">Phone: open the browser menu and choose “Add to Home Screen” or “Install app.”</p>
 <p class="sub" id="loading">Loading from your Google Sheet…</p>
 <div id="lock" class="card hide"><h2>Enter your PIN</h2><input type="password" id="pin" inputmode="numeric" placeholder="PIN"><p style="margin:12px 0 0"><button id="go">Open</button></p><p class="sub" id="lerr" style="margin:8px 0 0"></p></div>
 <div id="app" class="hide">
@@ -272,6 +281,11 @@ $('saveS').onclick=function(){var np=$('s_pin').value,costItems=[],invalid=false
 var today=new Date().toLocaleDateString('en-CA');$('f_date').value=today;$('o_date').value=today;
 function load(){$('loading').textContent='Loading from your Google Sheet…';call('getData',null).then(function(d){S=d;$('lock').classList.add('hide');$('app').classList.remove('hide');$('loading').textContent='';render()}).catch(function(e){$('app').classList.add('hide');$('lock').classList.remove('hide');$('loading').textContent='';$('lerr').textContent=PIN?e.message:'Enter your PIN to open the app.'})}
 $('go').onclick=function(){PIN=$('pin').value;try{localStorage.setItem('scoops-pin',PIN)}catch(e){}load()};
+var installPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();installPrompt=e});
+$('installApp').onclick=function(){if(!installPrompt){$('installHelp').textContent='Open your browser menu and choose “Add to Home Screen” or “Install app.”';return}installPrompt.prompt();installPrompt.userChoice.then(function(choice){if(choice.outcome==='accepted'){$('installHelp').textContent='Scoops was added to your home screen.'}installPrompt=null})};
+window.addEventListener('appinstalled',function(){$('installHelp').textContent='Scoops is installed on your phone.';$('installApp').classList.add('hide')});
+if('serviceWorker'in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('./sw.js').catch(function(){})}
 load();
 </script>
 </body>
