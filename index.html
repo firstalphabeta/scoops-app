@@ -144,7 +144,7 @@ function m(n){return S.set.cur+(Math.round(n*100)/100).toLocaleString()}
 function cupCost(){var s=S.set||{},base=(+s.cost||0)/(+s.cups||1),items=s.costItems||[];return base+items.reduce(function(total,item){return total+(+item.packCost||0)/(+item.packQty||1)*(+item.usedPerCup||0)},0)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},1800)}
-var API='https://script.google.com/macros/s/AKfycbzJ5np_X2qOl8pUrFA-6y_XLMtMWiWNXdDsWkkFwy2g15YAdF9OpSmZMqbxzqOBd1yL/exec',PIN='';try{PIN=localStorage.getItem('scoops-pin')||''}catch(e){}
+var API='https://script.google.com/macros/s/AKfycbzQlv9y8t2ejyr02BQ2IiD0j0XFpvqflMX09ISnxV7-qX2W_177G7gWb4BhFsW5NMBhDw/exec',PIN='';try{PIN=localStorage.getItem('scoops-pin')||''}catch(e){}
 function call(fn,arg){return fetch(API,{method:'POST',body:JSON.stringify({fn:fn,arg:arg,pin:PIN})}).then(function(r){return r.json()}).then(function(j){if(j.error)throw new Error(j.error);return j})}
 function run(fn,arg,after){toast('Saving…');call(fn,arg).then(function(d){S=d;toast('Saved to sheet ✓');render();if(after)after()}).catch(function(e){toast('Error: '+e.message)})}
 function tab(t){['today','dash','grow','cust','orders','set'].forEach(function(x){$(x).classList.toggle('hide',x!==t)});
