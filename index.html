@@ -157,7 +157,7 @@ var $=function(i){return document.getElementById(i)};
 function m(n){return S.set.cur+(Math.round(n*100)/100).toLocaleString()}
 function setTheme(theme){if(['system','light','dark'].indexOf(theme)<0)theme='system';if(theme==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',theme);var dark=theme==='dark'||(theme==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches),meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=dark?'#17121f':'#241a36';document.querySelectorAll('[data-theme-choice]').forEach(function(b){b.classList.toggle('on',b.dataset.themeChoice===theme)});try{localStorage.setItem('scoops-theme',theme)}catch(e){}}
 function installedMode(){var standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;try{return standalone||navigator.standalone===true||localStorage.getItem('scoops-installed')==='true'}catch(e){return standalone||navigator.standalone===true}}
-function updateInstallNotice(){if(installedMode())$('installNotice').classList.add('hide')}
+function updateInstallNotice(){$('installNotice').classList.toggle('hide',installedMode())}
 function updateTodayLabel(){var d=new Date();$('todayLabel').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
 function cupCost(){var s=S.set||{},base=(+s.cost||0)/(+s.cups||1),items=s.costItems||[];return base+items.reduce(function(total,item){return total+(+item.packCost||0)/(+item.packQty||1)*(+item.usedPerCup||0)},0)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
