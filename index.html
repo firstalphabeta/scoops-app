@@ -34,6 +34,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-o
 .tabs{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:6px;margin:10px 0 14px;position:sticky;top:16px}
 .tabs button{width:100%;text-align:left;flex:none;background:var(--card);color:var(--mute);border:1px solid var(--line);padding:10px 14px;font-size:14px}
 .tabs button.on{background:var(--ink);color:var(--bg)}
+.menu-toggle{display:flex!important;align-items:center;justify-content:space-between;background:var(--ink)!important;color:var(--bg)!important}
+.menu-items{display:none;flex-direction:column;gap:6px;padding-top:4px}
+.tabs.open .menu-items{display:flex}
 #app:not(.hide){display:grid;grid-template-columns:170px minmax(0,1fr);gap:16px;align-items:start}
 #app>section{grid-column:2;grid-row:1;min-width:0}
 .mobile-nav{display:none}
@@ -55,6 +58,11 @@ main{padding:14px 12px 72px}
 .mobile-nav{display:block;grid-column:1;grid-row:1;width:100%;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 #app>section{grid-column:1;grid-row:2}
 }
+.owner-photo-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.owner-photo{width:112px;height:112px;flex:0 0 112px;border-radius:50%;border:2px solid var(--line);background:var(--bg);display:grid;place-items:center;overflow:hidden;font-size:36px;font-weight:800;color:var(--mute)}
+.owner-photo img{width:100%;height:100%;object-fit:cover}
+.owner-photo-actions{flex:1;min-width:190px}
+.owner-photo-actions input[type=file]{padding:8px}
 </style>
 </head>
 <body>
@@ -64,11 +72,12 @@ main{padding:14px 12px 72px}
 <p class="sub" id="loading">Loading from your Google Sheet…</p>
 <div id="lock" class="card hide"><h2>Enter your PIN</h2><input type="password" id="pin" inputmode="numeric" placeholder="PIN"><p style="margin:12px 0 0"><button id="go">Open</button></p><p class="sub" id="lerr" style="margin:8px 0 0"></p></div>
 <div id="app" class="hide">
-<nav class="tabs" aria-label="Main sections">
-<button class="on" data-t="today">Today</button><button data-t="dash">Dashboard</button>
-<button data-t="orders">Orders</button><button data-t="grow">Grow</button><button data-t="cust">Loyalty</button><button data-t="set">Prices</button>
+<nav class="tabs" id="sideMenu" aria-label="Main sections">
+<button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="menuItems"><span id="menuCurrent">Today</span><span aria-hidden="true">⌄</span></button>
+<div class="menu-items" id="menuItems"><button class="on" data-t="today">Today</button><button data-t="dash">Dashboard</button>
+<button data-t="orders">Orders</button><button data-t="grow">Grow</button><button data-t="cust">Loyalty</button><button data-t="set">Settings</button></div>
 </nav>
-<select class="mobile-nav" id="mobileTab" aria-label="Choose section"><option value="today">Today</option><option value="dash">Dashboard</option><option value="orders">Orders</option><option value="grow">Grow</option><option value="cust">Loyalty</option><option value="set">Prices</option></select>
+<select class="mobile-nav" id="mobileTab" aria-label="Choose section"><option value="today">Today</option><option value="dash">Dashboard</option><option value="orders">Orders</option><option value="grow">Grow</option><option value="cust">Loyalty</option><option value="set">Settings</option></select>
 
 <section id="today">
 <div class="card">
@@ -106,6 +115,7 @@ main{padding:14px 12px 72px}
 </section>
 
 <section id="set" class="hide">
+<div class="card"><h2>Owner picture</h2><div class="owner-photo-row"><div class="owner-photo" id="ownerPhoto" aria-label="Owner picture preview">KN</div><div class="owner-photo-actions"><label for="ownerPhotoFile">Choose a picture</label><input type="file" id="ownerPhotoFile" accept="image/*"><button class="alt" id="removeOwnerPhoto" type="button">Remove picture</button><p class="sub" style="margin:8px 0 0">Saved in this browser only. It is not uploaded to your sheet.</p></div></div></div>
 <div class="card"><h2>Prices</h2>
 <label>Currency symbol</label><input id="s_cur">
 <label>Cost of one tub</label><input type="number" id="s_cost" inputmode="decimal">
@@ -129,9 +139,15 @@ var API='https://script.google.com/macros/s/AKfycbzJ5np_X2qOl8pUrFA-6y_XLMtMWiWN
 function call(fn,arg){return fetch(API,{method:'POST',body:JSON.stringify({fn:fn,arg:arg,pin:PIN})}).then(function(r){return r.json()}).then(function(j){if(j.error)throw new Error(j.error);return j})}
 function run(fn,arg,after){toast('Saving…');call(fn,arg).then(function(d){S=d;toast('Saved to sheet ✓');render();if(after)after()}).catch(function(e){toast('Error: '+e.message)})}
 function tab(t){['today','dash','grow','cust','orders','set'].forEach(function(x){$(x).classList.toggle('hide',x!==t)});
-document.querySelectorAll('.tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});$('mobileTab').value=t}
+document.querySelectorAll('.tabs button[data-t]').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});$('mobileTab').value=t;$('menuCurrent').textContent=document.querySelector('.tabs button[data-t="'+t+'"]').textContent;$('sideMenu').classList.remove('open');$('menuToggle').setAttribute('aria-expanded','false')}
 document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){tab(b.dataset.t)}});
 $('mobileTab').onchange=function(){tab(this.value)};
+$('menuToggle').onclick=function(){var open=$('sideMenu').classList.toggle('open');this.setAttribute('aria-expanded',String(open))};
+
+function showOwnerPhoto(src){var box=$('ownerPhoto');box.textContent='';if(src){var img=document.createElement('img');img.src=src;img.alt='Owner picture';box.appendChild(img)}else box.textContent='KN'}
+try{showOwnerPhoto(localStorage.getItem('scoops-owner-photo')||'')}catch(e){showOwnerPhoto('')}
+$('ownerPhotoFile').onchange=function(){var file=this.files&&this.files[0];if(!file)return;if(!file.type.match(/^image\//)){toast('Choose an image file');this.value='';return}var reader=new FileReader();reader.onload=function(){var image=new Image();image.onload=function(){var max=480,scale=Math.min(1,max/Math.max(image.width,image.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);var data=canvas.toDataURL('image/jpeg',.78);try{localStorage.setItem('scoops-owner-photo',data);showOwnerPhoto(data);toast('Picture updated')}catch(e){toast('Could not save picture in this browser')}};image.onerror=function(){toast('Could not open that picture')};image.src=reader.result};reader.readAsDataURL(file)};
+$('removeOwnerPhoto').onclick=function(){try{localStorage.removeItem('scoops-owner-photo')}catch(e){}showOwnerPhoto('');$('ownerPhotoFile').value='';toast('Picture removed')};
 
 function sum(l,k){return l.reduce(function(t,r){return t+(+r[k]||0)},0)}
 function saleDate(r){var d=String(r.Date||'');return /^\d{4}-\d{2}-\d{2}$/.test(d)?d:''}
@@ -211,7 +227,7 @@ C.forEach(function(c){earned+=Math.floor(c.Stamps/T);used+=+c.Redeemed||0});
 $('cinfo').innerHTML='<div class="card"><h2>Loyalty club</h2><div class="grid"><div class="stat"><span>Members</span><b>'+C.length+'</b></div><div class="stat"><span>Free cups waiting</span><b>'+Math.max(0,earned-used)+'</b></div></div><p class="sub" style="margin:10px 0 0">Every '+T+' cups earns a free cup. It costs you about '+m(cpc)+' in ice cream, only '+(cpc/(T*S.set.price)*100).toFixed(1)+'% of what the customer spends.</p></div>';
 var o=C.slice().sort(function(a,b){return b.Stamps-a.Stamps});
 $('clist').innerHTML='<div class="card"><h2>Members</h2>'+(o.length?o.map(function(c){var p=c.Stamps%T,av=Math.floor(c.Stamps/T)-(+c.Redeemed||0);
-return'<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>'+esc(c.Name)+'</b><span class="sub" style="margin:0">'+p+' / '+T+'</span></div><div style="height:8px;background:var(--bg);border-radius:6px;margin:6px 0 8px"><div style="height:8px;width:'+Math.round(p/T*100)+'%;background:var(--berry);border-radius:6px"></div></div><div class="row"><button class="alt" data-st="'+c.ID+'">+1 cup</button><button class="alt" data-st2="'+c.ID+'">+2 cups</button>'+(av>0?'<button data-rd="'+c.ID+'">Free cup ('+av+')</button>':'')+'<button class="alt" style="flex:0 0 44px" data-dc="'+c.ID+'" aria-label="Delete">✕</button></div></div>'}).join(''):'<p class="sub">No members yet. Add her first regular customers above.</p>')+'</div>';
+return'<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>'+esc(c.Name)+'</b><span class="sub" style="margin:0">'+p+' / '+T+'</span></div><div style="height:8px;background:var(--bg);border-radius:6px;margin:6px 0 8px"><div style="height:8px;width:'+Math.round(p/T*100)+'%;background:var(--berry);border-radius:6px"></div></div><div class="row"><button class="alt" data-st="'+c.ID+'">+1 cup</button><button class="alt" data-st2="'+c.ID+'">+2 cups</button>'+(av>0?'<button data-rd="'+c.ID+'">Free cup ('+av+')</button>':'')+'<button class="alt" style="flex:0 0 44px" data-dc="'+c.ID+'" aria-label="Delete">✕</button></div></div>'}).join(''):'<p class="sub">No members yet. Add your first customer above.</p>')+'</div>';
 document.querySelectorAll('[data-st]').forEach(function(b){b.onclick=function(){run('stamp',{id:b.dataset.st,n:1})}});
 document.querySelectorAll('[data-st2]').forEach(function(b){b.onclick=function(){run('stamp',{id:b.dataset.st2,n:2})}});
 document.querySelectorAll('[data-rd]').forEach(function(b){b.onclick=function(){run('redeem',b.dataset.rd)}});
