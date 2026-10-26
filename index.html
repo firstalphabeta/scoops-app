@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Scoops</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f2fb;--card:#fff;--ink:#241a36;--mute:#6f6585;--berry:#d6336c;--mint:#16a679;--blue:#5b4bdb;--line:#e4def2}
+@media (prefers-color-scheme:dark){:root{--bg:#17121f;--card:#221a30;--ink:#f1ecfa;--mute:#a79dbd;--berry:#ff6b9a;--mint:#3ddba5;--blue:#8f83ff;--line:#33294a;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.45}
+main{max-width:720px;margin:0 auto;padding:18px 16px 80px}
+h1{font-size:30px;font-weight:800;margin:6px 0 2px;letter-spacing:-.5px}
+h2{font-size:18px;margin:0 0 10px}
+.sub{color:var(--mute);margin:0 0 14px}
+.welcome{font-size:21px;font-weight:800;color:var(--ink);margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{padding:12px;border-radius:12px;background:var(--bg)}
+.stat b{display:block;font-size:22px;font-weight:800}.stat span{color:var(--mute);font-size:13px}
+.hero{background:var(--ink);color:var(--bg);border:0}
+.hero .big{font-size:46px;font-weight:800;letter-spacing:-1.5px;line-height:1}.hero span{opacity:.7;font-size:14px}
+label{display:block;font-size:13px;color:var(--mute);margin:8px 0 3px}
+input,textarea{width:100%;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:12px 16px;background:var(--berry);color:#fff;cursor:pointer}
+button.alt{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.tabs{display:flex;gap:6px;margin:10px 0 14px;overflow-x:auto}
+.tabs button{flex:1 0 auto;background:var(--card);color:var(--mute);border:1px solid var(--line);padding:10px 14px;font-size:14px}
+.tabs button.on{background:var(--ink);color:var(--bg)}
+.tip{border-left:4px solid var(--mint);padding:8px 12px;margin:8px 0;background:var(--bg);border-radius:0 10px 10px 0;font-size:14.5px}
+.tip.warn{border-color:var(--berry)}
+.counter{display:flex;align-items:center;justify-content:center;gap:18px;margin:6px 0 12px}
+.counter b{font-size:64px;font-weight:800;min-width:90px;text-align:center;line-height:1}
+.counter button{width:68px;height:68px;border-radius:50%;font-size:32px;padding:0}
+.quick{display:flex;gap:8px;justify-content:center;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}
+.hide{display:none}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<main>
+<h1>Scoops 🍦</h1>
+<p class="sub welcome">Welcome, Kuukua Nyarko</p>
+<p class="sub" id="loading">Loading from your Google Sheet…</p>
+<div id="lock" class="card hide"><h2>Enter your PIN</h2><input type="password" id="pin" inputmode="numeric" placeholder="PIN"><p style="margin:12px 0 0"><button id="go">Open</button></p><p class="sub" id="lerr" style="margin:8px 0 0"></p></div>
+<div id="app" class="hide">
+<div class="tabs">
+<button class="on" data-t="today">Today</button><button data-t="dash">Dashboard</button>
+<button data-t="orders">Orders</button><button data-t="grow">Grow</button><button data-t="cust">Loyalty</button><button data-t="set">Prices</button>
+</div>
+
+<section id="today">
+<div class="card">
+<h2>Cups sold today</h2>
+<div class="counter"><button class="alt" id="minus" aria-label="Remove one">−</button><b id="cnt">0</b><button id="plus" aria-label="Add one">+</button></div>
+<div class="quick"><button class="alt" data-add="5">+5</button><button class="alt" data-add="10">+10</button></div>
+<p class="sub" style="text-align:center;margin:0" id="todayRev"></p>
+</div>
+<div class="card">
+<label>Date</label><input type="date" id="f_date">
+<label>Event name (empty for a normal day)</label><input id="f_event" placeholder="e.g. School fair">
+<div class="row"><div><label>Tubs bought</label><input type="number" id="f_tubs" min="0" step="0.5" inputmode="decimal" value="1"></div>
+<div><label>Other costs</label><input type="number" id="f_other" min="0" inputmode="decimal" value="0"></div></div>
+<div class="row"><div><label>Free / discounted cups</label><input type="number" id="f_free" min="0" inputmode="numeric" value="0"></div>
+<div><label>Cups left over</label><input type="number" id="f_left" min="0" inputmode="numeric" value="0"></div></div>
+<label>Notes</label><textarea id="f_note" rows="2"></textarea>
+<p style="margin:12px 0 0"><button id="save">Save today to sheet</button></p>
+</div>
+</section>
+
+<section id="dash" class="hide"></section>
+<section id="grow" class="hide"></section>
+<section id="cust" class="hide"><div id="cinfo"></div>
+<div class="card"><h2>Add member</h2><div class="row"><div><label>Name</label><input id="c_name"></div><div><label>Phone (optional)</label><input id="c_phone" inputmode="tel"></div></div><p style="margin:12px 0 0"><button id="addC">Add to loyalty club</button></p></div>
+<div id="clist"></div></section>
+
+<section id="orders" class="hide">
+<div class="card"><h2>New pre-order</h2>
+<label>Customer or event</label><input id="o_name">
+<div class="row"><div><label>Cups ordered</label><input type="number" id="o_qty" min="1" inputmode="numeric"></div>
+<div><label>Pickup date</label><input type="date" id="o_date"></div></div>
+<label>Deposit paid</label><input type="number" id="o_dep" min="0" inputmode="decimal" value="0">
+<p style="margin:12px 0 0"><button id="addO">Add order</button></p></div>
+<div id="olist"></div>
+</section>
+
+<section id="set" class="hide">
+<div class="card"><h2>Prices</h2>
+<label>Currency symbol</label><input id="s_cur">
+<label>Cost of one tub</label><input type="number" id="s_cost" inputmode="decimal">
+<label>Cups one tub makes</label><input type="number" id="s_cups" inputmode="numeric">
+<label>Selling price per cup</label><input type="number" id="s_price" inputmode="decimal">
+<label>Cups a customer buys to earn a free cup</label><input type="number" id="s_loy" inputmode="numeric">
+<label>Change PIN (leave empty to keep it)</label><input type="password" id="s_pin" inputmode="numeric">
+<p style="margin:12px 0 0"><button id="saveS">Save prices</button></p></div>
+</section>
+</div>
+</main>
+<div id="toast"></div>
+
+<script>
+var S={set:{cur:'',cost:0,cups:1,price:0},sales:[],orders:[]},cnt=0;
+var $=function(i){return document.getElementById(i)};
+function m(n){return S.set.cur+(Math.round(n*100)/100).toLocaleString()}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},1800)}
+var API='https://script.google.com/macros/s/AKfycby1jIyc9NcSIi5L_oivmIKqK_1nYyL0vkkI66i93huzEg95a6l8SEkNlJt2dOISDU7AEw/exec',PIN='';try{PIN=localStorage.getItem('scoops-pin')||''}catch(e){}
+function call(fn,arg){return fetch(API,{method:'POST',body:JSON.stringify({fn:fn,arg:arg,pin:PIN})}).then(function(r){return r.json()}).then(function(j){if(j.error)throw new Error(j.error);return j})}
+function run(fn,arg,after){toast('Saving…');call(fn,arg).then(function(d){S=d;toast('Saved to sheet ✓');render();if(after)after()}).catch(function(e){toast('Error: '+e.message)})}
+function tab(t){['today','dash','grow','cust','orders','set'].forEach(function(x){$(x).classList.toggle('hide',x!==t)});
+document.querySelectorAll('.tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)})}
+document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){tab(b.dataset.t)}});
+
+function sum(l,k){return l.reduce(function(t,r){return t+(+r[k]||0)},0)}
+function chart(a){var W=640,H=200,p=28,n=a.length,v=a.map(function(r){return+r.Profit});
+var mx=Math.max.apply(null,v.concat([1])),mn=Math.min.apply(null,v.concat([0])),bw=Math.min(46,(W-p*2)/n-8);
+var y=function(x){return 10+(H-40)*(1-(x-mn)/(mx-mn||1))};
+var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Profit per day"><line x1="'+p+'" x2="'+(W-p)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="var(--line)"/>',pts=[];
+a.forEach(function(r,i){var x=p+(i+.5)*((W-p*2)/n),yy=y(v[i]),y0=y(0);
+s+='<rect x="'+(x-bw/2)+'" y="'+Math.min(yy,y0)+'" width="'+bw+'" height="'+Math.max(2,Math.abs(y0-yy))+'" rx="5" fill="'+(v[i]>=0?'var(--mint)':'var(--berry)')+'"/><text x="'+x+'" y="'+(H-8)+'" font-size="11" text-anchor="middle" fill="var(--mute)">'+esc(String(r.Date).slice(5))+'</text>';pts.push(x+','+yy)});
+if(n>1)s+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="4 4"/>';
+return s+'</svg>'}
+
+function dash(){var a=S.sales.slice().sort(function(x,y){return x.Date<y.Date?-1:1});
+if(!a.length){$('dash').innerHTML='<div class="card"><h2>No sales yet</h2><p class="sub">Record the first sale day on the Today tab.</p></div>';return}
+var cur=a[a.length-1].Month,mo=a.filter(function(r){return r.Month===cur}),P=sum(mo,'Profit'),R=sum(mo,'Revenue'),C=sum(mo,'Cost'),Q=sum(mo,'Sold');
+var h='<div class="card hero"><span>Profit in '+cur+'</span><div class="big">'+m(P)+'</div><span>'+mo.length+' day'+(mo.length>1?'s':'')+' · margin '+(R?Math.round(P/R*100):0)+'%</span></div>';
+h+='<div class="grid" style="margin-bottom:14px"><div class="card stat"><span>Money in</span><b>'+m(R)+'</b></div><div class="card stat"><span>Money spent</span><b>'+m(C)+'</b></div><div class="card stat"><span>Cups sold</span><b>'+Q+'</b></div><div class="card stat"><span>Avg per day</span><b>'+m(P/mo.length)+'</b></div></div>';
+h+='<div class="card"><h2>Profit per day</h2>'+chart(a.slice(-12))+'</div><div class="card"><h2>What the numbers say</h2>';
+var best=a.slice().sort(function(x,y){return y.Profit-x.Profit})[0],made=sum(mo,'Tubs')*S.set.cups,st=made?Math.round((Q+sum(mo,'Free'))/made*100):0;
+h+='<div class="tip">Best day so far: <b>'+esc(best.Date)+(best.Event?' ('+esc(best.Event)+')':'')+'</b> with '+m(best.Profit)+' profit.</div>';
+if(made)h+='<div class="tip'+(st<85?' warn':'')+'">You sold or gave out '+st+'% of the cups you bought this month. '+(st<85?'Buy a bit less, or run a promo to clear stock.':'Stock matches demand well.')+'</div>';
+var ev=a.filter(function(r){return r.Event}),no=a.filter(function(r){return !r.Event});
+if(ev.length&&no.length){var A=sum(ev,'Profit')/ev.length,B=sum(no,'Profit')/no.length;h+='<div class="tip">Event days average '+m(A)+' versus '+m(B)+' on normal days. '+(A>B?'Events are worth chasing.':'Normal days are doing better for now.')+'</div>'}
+h+='<div class="tip">Each tub pays for itself after '+Math.ceil(S.set.cost/S.set.price)+' cups.</div></div>';
+var rc=S.sales.slice(-6).reverse();h+='<div class="card"><h2>Recent entries</h2><table><tr><th>Date</th><th>Cups</th><th>Profit</th><th></th></tr>'+rc.map(function(r){return'<tr><td>'+esc(r.Date)+(r.Event?'<br><small>'+esc(r.Event)+'</small>':'')+'</td><td>'+r.Sold+'</td><td>'+m(r.Profit)+'</td><td><button class="alt" style="padding:4px 10px" data-ds="'+r.ID+'" aria-label="Delete">✕</button></td></tr>'}).join('')+'</table><p class="sub" style="margin:8px 0 0">Made a mistake? Delete the entry and log it again.</p></div>';
+$('dash').innerHTML=h;document.querySelectorAll('[data-ds]').forEach(function(b){b.onclick=function(){if(confirm('Delete this entry?'))run('deleteById',{sheet:'Sales',id:b.dataset.ds})}})}
+
+function grow(){var a=S.sales.slice().sort(function(x,y){return x.Date<y.Date?-1:1}),el=$('grow');
+if(a.length<3){el.innerHTML='<div class="card"><h2>Trends unlock soon</h2><p class="sub">Save at least 3 sales days and this tab shows trends and safe promo advice.</p></div>';return}
+var cpc=S.set.cost/S.set.cups,mg=S.set.price-cpc,mons={},h='';
+a.forEach(function(r){(mons[r.Month]=mons[r.Month]||[]).push(r)});
+var ks=Object.keys(mons).sort(),cm=mons[ks[ks.length-1]],pm=ks.length>1?mons[ks[ks.length-2]]:null;
+var half=Math.floor(a.length/2),c1=sum(a.slice(0,half),'Sold')/half,c2=sum(a.slice(half),'Sold')/(a.length-half),gr=Math.round((c2/c1-1)*100);
+h+='<div class="card"><h2>Trends</h2><div class="tip'+(gr<0?' warn':'')+'">Cups per day: '+Math.round(c1)+' earlier, '+Math.round(c2)+' recently ('+(gr>=0?'+':'')+gr+'%). '+(gr>=0?'Demand is growing.':'Demand is slipping, so a promo may help.')+'</div>';
+if(pm){var pp=sum(pm,'Profit')/pm.length,cp=sum(cm,'Profit')/cm.length;h+='<div class="tip'+(cp<pp?' warn':'')+'">Average profit per day: '+m(cp)+' in '+ks[ks.length-1]+' versus '+m(pp)+' in '+ks[ks.length-2]+'.</div>'}
+var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],wd=dn.map(function(){return[]});
+a.forEach(function(r){wd[new Date(r.Date+'T12:00:00').getDay()].push(+r.Sold)});
+var av=wd.map(function(l){return l.length?l.reduce(function(t,x){return t+x},0)/l.length:-1}),mx=Math.max.apply(null,av),bi=av.indexOf(mx),wi=bi,lo=1e9;
+av.forEach(function(v,i){if(v>=0&&v<lo){lo=v;wi=i}});
+h+='<h2 style="margin:14px 0 4px;font-size:15px">Average cups by weekday</h2>';
+av.forEach(function(v,i){if(v<0)return;h+='<div style="display:flex;align-items:center;gap:8px;margin:5px 0"><span style="width:34px;font-size:13px;color:var(--mute)">'+dn[i]+'</span><div style="flex:1;background:var(--bg);border-radius:8px"><div style="width:'+Math.round(v/mx*100)+'%;min-width:78px;background:'+(i===wi&&bi!==wi?'var(--berry)':'var(--blue)')+';border-radius:8px;padding:3px 8px;color:#fff;font-size:13px">'+Math.round(v)+' cups</div></div></div>'});
+if(bi!==wi)h+='<div class="tip">'+dn[bi]+' is your strongest day. '+dn[wi]+' is the weakest, so test promos on '+dn[wi]+' and leave '+dn[bi]+' at full price.</div>';
+h+='</div>';
+var avL=sum(a,'Left')/a.length,avS=sum(a,'Sold')/a.length,maxD=Math.floor(mg/S.set.price*100),safeD=Math.floor(maxD/2/5)*5;
+h+='<div class="card"><h2>Discounts that protect your profit</h2><p class="sub">A cup costs you about '+m(cpc)+' to make and earns '+m(mg)+' at full price.</p>';
+h+='<div class="tip warn">Never go above <b>'+maxD+'% off</b> or you lose money on every cup. Stay within <b>'+safeD+'%</b> to keep at least half your normal profit per cup.</div>';
+h+='<label>Try a discount: <b id="gd">10</b>% off (cup price <span id="gp"></span>)</label><input type="range" id="g1" min="5" max="60" step="5" value="10"><div id="gr1"></div>';
+h+='<label style="margin-top:14px">Promo budget: <b id="gb">15</b>% of this month\'s profit</label><input type="range" id="g2" min="5" max="30" step="5" value="15"><div id="gr2"></div></div>';
+h+='<div class="card"><h2>Safe moves to try</h2>';
+h+='<div class="tip"><b>Closing-time deal:</b> you average '+avL.toFixed(1)+' cups left over per day. In the last hour, offer them at 20-30% off. The ice cream is already paid for.</div>';
+h+='<div class="tip"><b>Slow-day boost:</b> on '+dn[wi]+', offer 2 cups for 10% off. Do not discount '+dn[bi]+'.</div>';
+h+='<div class="tip"><b>Loyalty card:</b> buy 9, get the 10th free. It costs about '+m(cpc)+' per full card, only '+(cpc/(9*S.set.price)*100).toFixed(1)+'% of what the customer spends.</div>';
+h+='<div class="tip"><b>Free cup day:</b> give the first 5 customers a free cup on a slow day. It costs about '+m(5*cpc)+' in ice cream.</div>';
+h+='<div class="tip"><b>Double-stamp day:</b> on a slow day, every cup earns 2 loyalty stamps. It costs nothing today and brings people back.</div>';
+h+='<div class="tip"><b>Event bundles:</b> pre-order 20+ cups for 5% off. That stays inside your safe discount zone and gives you cash before the day.</div>';
+h+='<div class="tip"><b>Photo challenge:</b> customers who post a photo with your name get a free topping or a stamp. Free advertising.</div>';
+h+='<div class="tip warn">Change one thing at a time for 4 weeks, then compare average profit per day here.</div></div>';
+el.innerHTML=h;
+function u(){var d=+$('g1').value/100,nm=mg-S.set.price*d;$('gd').textContent=Math.round(d*100);$('gp').textContent=m(S.set.price*(1-d));
+$('gr1').innerHTML=nm<=0?'<div class="tip warn">You lose money on every cup at this level.</div>':'<div class="tip'+(d*100>safeD?' warn':'')+'">You keep '+m(nm)+' per cup. To earn the same total profit you need <b>'+Math.ceil((mg/nm-1)*100)+'% more cups</b>, about '+Math.ceil(avS*mg/nm)+' a day instead of '+Math.round(avS)+'.</div>'}
+function u2(){var q=+$('g2').value,b=Math.max(0,sum(cm,'Profit'))*q/100;$('gb').textContent=q;$('gr2').innerHTML='<div class="tip">Promo budget: <b>'+m(b)+'</b>. That covers about <b>'+Math.floor(b/cpc)+' free cups</b>, since a free cup only costs you the ice cream ('+m(cpc)+').</div>'}
+$('g1').oninput=u;$('g2').oninput=u2;u();u2()}
+function cust(){var C=S.customers||[],T=S.set.loy||10,cpc=S.set.cost/S.set.cups,earned=0,used=0;
+C.forEach(function(c){earned+=Math.floor(c.Stamps/T);used+=+c.Redeemed||0});
+$('cinfo').innerHTML='<div class="card"><h2>Loyalty club</h2><div class="grid"><div class="stat"><span>Members</span><b>'+C.length+'</b></div><div class="stat"><span>Free cups waiting</span><b>'+Math.max(0,earned-used)+'</b></div></div><p class="sub" style="margin:10px 0 0">Every '+T+' cups earns a free cup. It costs you about '+m(cpc)+' in ice cream, only '+(cpc/(T*S.set.price)*100).toFixed(1)+'% of what the customer spends.</p></div>';
+var o=C.slice().sort(function(a,b){return b.Stamps-a.Stamps});
+$('clist').innerHTML='<div class="card"><h2>Members</h2>'+(o.length?o.map(function(c){var p=c.Stamps%T,av=Math.floor(c.Stamps/T)-(+c.Redeemed||0);
+return'<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>'+esc(c.Name)+'</b><span class="sub" style="margin:0">'+p+' / '+T+'</span></div><div style="height:8px;background:var(--bg);border-radius:6px;margin:6px 0 8px"><div style="height:8px;width:'+Math.round(p/T*100)+'%;background:var(--berry);border-radius:6px"></div></div><div class="row"><button class="alt" data-st="'+c.ID+'">+1 cup</button><button class="alt" data-st2="'+c.ID+'">+2 cups</button>'+(av>0?'<button data-rd="'+c.ID+'">Free cup ('+av+')</button>':'')+'<button class="alt" style="flex:0 0 44px" data-dc="'+c.ID+'" aria-label="Delete">✕</button></div></div>'}).join(''):'<p class="sub">No members yet. Add her first regular customers above.</p>')+'</div>';
+document.querySelectorAll('[data-st]').forEach(function(b){b.onclick=function(){run('stamp',{id:b.dataset.st,n:1})}});
+document.querySelectorAll('[data-st2]').forEach(function(b){b.onclick=function(){run('stamp',{id:b.dataset.st2,n:2})}});
+document.querySelectorAll('[data-rd]').forEach(function(b){b.onclick=function(){run('redeem',b.dataset.rd)}});
+document.querySelectorAll('[data-dc]').forEach(function(b){b.onclick=function(){if(confirm('Remove this member?'))run('deleteById',{sheet:'Customers',id:b.dataset.dc})}})}
+$('addC').onclick=function(){if(!$('c_name').value){toast('Enter a name');return}run('addCustomer',{name:$('c_name').value,phone:$('c_phone').value},function(){$('c_name').value='';$('c_phone').value=''})};
+function open_(){return S.orders.filter(function(o){return !o.Done}).sort(function(a,b){return a.PickupDate<b.PickupDate?-1:1})}
+function orders(){var o=open_(),h='';
+if(o.length){var q=sum(o,'Qty');h+='<div class="card"><h2>To prepare</h2><div class="grid"><div class="stat"><span>Cups</span><b>'+q+'</b></div><div class="stat"><span>Tubs to buy</span><b>'+Math.ceil(q/S.set.cups)+'</b></div><div class="stat"><span>Expected income</span><b>'+m(q*S.set.price)+'</b></div><div class="stat"><span>Deposits held</span><b>'+m(sum(o,'Deposit'))+'</b></div></div></div>'}
+h+='<div class="card"><h2>Open orders</h2>'+(o.length?'<table><tr><th>Who</th><th>Cups</th><th>Owes</th><th></th></tr>'+o.map(function(x){return'<tr><td>'+esc(x.Name)+'<br><small>'+esc(x.PickupDate)+'</small></td><td>'+x.Qty+'</td><td>'+m(Math.max(0,x.Qty*S.set.price-x.Deposit))+'</td><td><button style="padding:6px 10px" data-ok="'+x.ID+'">Delivered</button> <button class="alt" style="padding:6px 10px" data-no="'+x.ID+'" aria-label="Delete">✕</button></td></tr>'}).join('')+'</table>':'<p class="sub">No open orders.</p>')+'</div>';
+$('olist').innerHTML=h;
+document.querySelectorAll('[data-ok]').forEach(function(b){b.onclick=function(){run('deliverOrder',b.dataset.ok)}});
+document.querySelectorAll('[data-no]').forEach(function(b){b.onclick=function(){run('deleteById',{sheet:'Orders',id:b.dataset.no})}})}
+
+function sets(){$('s_cur').value=S.set.cur;$('s_cost').value=S.set.cost;$('s_cups').value=S.set.cups;$('s_price').value=S.set.price;$('s_loy').value=S.set.loy;rev()}
+function rev(){$('cnt').textContent=cnt;$('todayRev').textContent=cnt+' cups = '+m(cnt*S.set.price)}
+function render(){dash();grow();cust();orders();sets()}
+
+$('plus').onclick=function(){cnt++;rev()};
+$('minus').onclick=function(){cnt=Math.max(0,cnt-1);rev()};
+document.querySelectorAll('[data-add]').forEach(function(b){b.onclick=function(){cnt+=+b.dataset.add;rev()}});
+$('save').onclick=function(){var v=function(i){return+$(i).value||0};if(!$('f_date').value||!cnt){toast('Pick a date and add cups sold');return}
+run('addSale',{date:$('f_date').value,event:$('f_event').value,tubs:v('f_tubs'),sold:cnt,free:v('f_free'),left:v('f_left'),other:v('f_other'),note:$('f_note').value},function(){cnt=0;rev();$('f_event').value='';$('f_note').value='';tab('dash')})};
+$('addO').onclick=function(){var q=+$('o_qty').value;if(!$('o_name').value||!q||!$('o_date').value){toast('Fill name, cups and date');return}
+run('addOrder',{name:$('o_name').value,qty:q,date:$('o_date').value,dep:+$('o_dep').value||0},function(){$('o_name').value='';$('o_qty').value='';$('o_dep').value=0})};
+$('saveS').onclick=function(){var np=$('s_pin').value;run('saveSettings',{cur:$('s_cur').value||'GH₵',cost:+$('s_cost').value,cups:+$('s_cups').value||1,price:+$('s_price').value,loy:+$('s_loy').value||10,pin:np},function(){if(np){PIN=np;try{localStorage.setItem('scoops-pin',PIN)}catch(e){}}$('s_pin').value=''})};
+
+var today=new Date().toLocaleDateString('en-CA');$('f_date').value=today;$('o_date').value=today;
+function load(){$('loading').textContent='Loading from your Google Sheet…';call('getData',null).then(function(d){S=d;$('lock').classList.add('hide');$('app').classList.remove('hide');$('loading').textContent='';render()}).catch(function(e){$('app').classList.add('hide');$('lock').classList.remove('hide');$('loading').textContent='';$('lerr').textContent=PIN?e.message:'Enter your PIN to open the app.'})}
+$('go').onclick=function(){PIN=$('pin').value;try{localStorage.setItem('scoops-pin',PIN)}catch(e){}load()};
+load();
+</script>
+</body>
+</html>
